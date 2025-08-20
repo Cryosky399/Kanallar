@@ -434,11 +434,13 @@ async def process_broadcast(message: types.Message, state: FSMContext):
 @dp.message_handler(lambda m: m.text == "📘 Qo‘llanma")
 async def show_help(message: types.Message):
     kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton("📥 1. Anime qo‘shish", callback_data="help_add"))
-    kb.add(InlineKeyboardButton("📡 2. Kanal yaratish", callback_data="help_channel"), 
-    kb.add(InlineKeyboardButton("🆔 3. Reklama ID olish", callback_data="help_id")
-    kb.add(InlineKeyboardButton("🔁 4. Kod ishlashi", callback_data="help_code")
-    kb.add(InlineKeyboardButton("❓ 5. Savol-javob", callback_data="help_faq")
+    kb.add(
+        InlineKeyboardButton("📥 1. Anime qo‘shish", callback_data="help_add"),
+        InlineKeyboardButton("📡 2. Kanal yaratish", callback_data="help_channel"),
+        InlineKeyboardButton("🆔 3. Reklama ID olish", callback_data="help_id"),
+        InlineKeyboardButton("🔁 4. Kod ishlashi", callback_data="help_code"),
+        InlineKeyboardButton("❓ 5. Savol-javob", callback_data="help_faq")
+    )
     await message.answer("📘 Qanday yordam kerak?", reply_markup=kb)
 
 # === Qo‘llanma sahifalari === #
