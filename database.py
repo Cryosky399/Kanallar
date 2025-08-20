@@ -1,4 +1,3 @@
-# database.py
 import asyncpg
 import os
 from dotenv import load_dotenv
@@ -126,6 +125,12 @@ async def get_all_users():
             }
             for row in rows
         ]
+
+# === Statistikaga foydalanuvchilar sonini olish === #
+async def get_user_count():
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT COUNT(*) AS count FROM users")
+        return row["count"]
 
 # === Кодтарды басқару === #
 async def add_kino_code(code, channel, message_id, post_count, title):
