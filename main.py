@@ -390,3 +390,147 @@ async def confirm_edit(message: types.Message, state: FSMContext):
     else:
         await message.answer("❌ Tahrirlash bekor edildi.")
     await state.finish()
+
+# === 4-ші блок === #
+
+# === Admin мен пайдаланушы арасындағы хабар алмасу === #
+@dp.callback_query_handler(lambda c: c.data.startswith("reply_user:"), user_id=ADMINS)
+async def start_admin_reply(callback: types.CallbackQuery, state: FSMContext):
+    user_id = int(callback.data.split(":")[1])
+    await state.update_data(reply_user_id=user_id)
+    await AdminReplyStates.waiting_for_reply_message.set()
+    await callback.message.answer("✍️ Endi foydalanuvchiga yubormoqchi bo‘lgan xabaringizni yozing.")
+    await callback.answer()
+
+@dp.message_handler(state=AdminReplyStates.waiting_for_reply_message, user_id=ADMINS)
+async def send_admin_reply(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    user_id = data.get("reply_user_id")
+
+    try:
+        await bot.send_message(user_id, f"✉️ Admindan javob:\n\n{message.text}")
+        await message.answer("✅ Javob foydalanuvchiga yuborildi.")
+    except Exception as e:
+        await message.answer(f"❌ Xatolik: {e}")
+    finally:
+        await state.finish()
+
+# === Foydalanuvchi bilan chatlashish === #
+@dp.message_handler(lambda m: m.text == "✉️ Admin bilan bog‘lanish")
+async def contact_admin(message: types.Message):
+    await UserStates.waiting_for_admin_message.set()
+    await message.answer("✍️ Adminlarga yubormoqchi bo‘lgan xabaringizni yozing.\n\n❌ Bekor qilish uchun '❌ Bekor qilish' tugmasini bosing.")
+
+@dp.message_handler(state=UserStates.waiting_for_admin_message)
+async def forward_to_admins(message: types.Message, state: FSMContext):
+    await state.finish()
+    user = message.from_user
+
+    for admin_id in ADMINS:
+        try:
+            keyboard = InlineKeyboardMarkup().add(
+                InlineKeyboardButton("✉️ Javob yozish", callback_data=f"reply_user:{user.id}")
+            )
+
+            await bot.send_message(
+                admin_id,
+                f"📩 <b>Yangi xabar:</b>\n\n"
+                f"<b>👤 Foydalanuvchi:</b> {user.full_name} | <code>{user.id}</code>\n"
+                f"<b>💬 Xabar:</b> {message.text}",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception as e:
+            print(f"Adminga yuborishda xatolik: {e}")
+
+    await message.answer("✅ Xabaringiz yuborildi. Tez orada admin siz bilan bog‘lanadi.")
+
+# === Admin paneli === #
+@dp.message_handler(lambda m: m.text == "📢 Habar yuborish", user_id=ADMINS)
+async def broadcast_message(message: types.Message):
+    await AdminStates.waiting_for_broadcast_data.set()
+    await message.answer("📨 Habar yuborish uchun format:\n`@kanal xabar_id`", parse_mode="Markdown")
+
+@dp.message_handler(state=AdminStates.waiting_for_broadcast_data, user_id=ADMINS)
+async def process_broadcast(message: types.Message, state: FSMContext):
+    await state.finish()
+    parts = message.text.strip().split()
+    if len(parts) != 2:
+        await message.answer("❗ Format noto‘g‘ri. Masalan: `@kanalim 123`")
+        return
+
+    channel_username, msg_id = parts
+    if not msg_id.isdigit():
+        await message.answer("❗ Xabar ID raqam bo‘lishi kerak.")
+        return
+
+    msg_id = int(msg_id)
+    users = await get_all_user_ids()  # Foydalanuvchilar ro‘yxati
+
+    success = 0
+    fail = 0
+
+    for user_id in users:
+        try:
+            await bot.forward_message(
+                chat_id=user_id,
+                from_chat_id=channel_username,
+                message_id=msg_id
+            )
+            success += 1
+        except Exception as e:
+            print(f"Xatolik {user_id} uchun: {e}")
+            fail += 1
+
+    await message.answer(f"✅ Yuborildi: {success} ta\n❌ Xatolik: {fail} ta")
+
+# === Qo‘llanma === #
+@dp.message_handler(lambda m: m.text == "📘 Qo‘llanma")
+async def show_help(message: types.Message):
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(InlineKeyboardButton("📥 1. Anime qo‘shish", callback_data="help_add"))
+    kb.add(InlineKeyboardButton("📡 2. Kanal yaratish", callback_data="help_channel"))
+    kb.add(InlineKeyboardButton("🆔 3. Reklama ID olish", callback_data="help_id"))
+    kb.add(InlineKeyboardButton("🔁 4. Kod ishlashi", callback_data="help_code"))
+    kb.add(InlineKeyboardButton("❓ 5. Savol-javob", callback_data="help_faq"))
+    await message.answer("📘 Qanday yordam kerak?", reply_markup=kb)
+
+# === Qo‘llanma sahifalari === #
+@dp.callback_query_handler(lambda c: c.data.startswith("help_"))
+async def show_help_page(callback: types.CallbackQuery):
+    key = callback.data
+    text = HELP_TEXTS.get(key, "❌ Ma'lumot topilmadi.")
+    
+    # Ortga tugmasi
+    kb = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("⬅️ Ortga", callback_data="back_help")
+    )
+    
+    try:
+        await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
+    except Exception as e:
+        # Agar matn o'zgartirilmayotgan bo'lsa (masalan, rasmli xabar bo'lsa)
+        await callback.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+        await callback.message.delete()  # Eski xabarni o'chirish
+    finally:
+        await callback.answer()
+
+# === Ortga tugma === #
+@dp.callback_query_handler(lambda c: c.data == "back_help")
+async def back_to_qollanma(callback: types.CallbackQuery):
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        InlineKeyboardButton("📥 1. Anime qo‘shish", callback_data="help_add"),
+        InlineKeyboardButton("📡 2. Kanal yaratish", callback_data="help_channel"),
+        InlineKeyboardButton("🆔 3. Reklama ID olish", callback_data="help_id"),
+        InlineKeyboardButton("🔁 4. Kod ishlashi", callback_data="help_code"),
+        InlineKeyboardButton("❓ 5. Savol-javob", callback_data="help_faq")
+    )
+    
+    try:
+        await callback.message.edit_text("📘 Qanday yordam kerak?", reply_markup=kb)
+    except Exception as e:
+        await callback.message.answer("📘 Qanday yordam kerak?", reply_markup=kb)
+        await callback.message.delete()
+    finally:
+        await callback.answer()
