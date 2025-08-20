@@ -444,7 +444,7 @@ async def show_help(message: types.Message):
     await message.answer("📘 Qanday yordam kerak?", reply_markup=kb)
 
 # === Qo‘llanma sahifalari === #
-@dp.callback_query_handler(lambda c: c.data.startswith("help_")
+@dp.callback_query_handler(lambda c: c.data.startswith("help_"))  # ✅ Жақшаны жауып, декораторды дұрыс аяқтадым
 async def show_help_page(callback: types.CallbackQuery):
     key = callback.data
     text = HELP_TEXTS.get(key, "❌ Ma'lumot topilmadi.")
