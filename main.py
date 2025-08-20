@@ -548,8 +548,7 @@ async def delete_faq_start(callback: types.CallbackQuery):
         kb.add(InlineKeyboardButton(f"❌ {faq['question']}", callback_data=f"del_faq_{faq['id']}"))
     kb.add(InlineKeyboardButton("⬅️ Ортаға", callback_data="back_faq"))
     await callback.message.answer("❌ Қай сұрақты өшіру керек?", reply_markup=kb)
-
-@dp.callback_query_handler(lambda c: c.data.startswith("del_faq_", user_id=ADMINS)
+@dp.callback_query_handler(lambda c: c.data.startswith("del_faq_") and c.from_user.id in ADMINS)
 async def delete_faq_confirm(callback: types.CallbackQuery):
     faq_id = c.data.split("_")[2]
     await delete_faq(faq_id)  # delete_faq функциясын қосу керек
