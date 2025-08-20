@@ -5,8 +5,9 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.utils import executor
 import os
+from dotenv import load_dotenv   # ✅ МІНЕ ОСЫ ИМПОРТТЫ ҚОЙДЫМ
 from keep_alive import keep_alive
-from database import (  # database.py файлдан функцияларды импорттаймыз
+from database import (  # database.py файлдан функцияларды импорттаймиз
     init_db,
     add_user,
     get_user_count,
@@ -21,7 +22,7 @@ from database import (  # database.py файлдан функцияларды и
 )
 
 # === YUKLAMALAR === #
-load_dotenv()
+load_dotenv()   # ✅ .env faylini yuklaydi
 keep_alive()
 
 API_TOKEN = os.getenv("API_TOKEN")
