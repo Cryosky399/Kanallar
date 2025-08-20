@@ -545,7 +545,7 @@ async def delete_faq_start(callback: types.CallbackQuery):
         return
     kb = InlineKeyboardMarkup(row_width=1)
     for faq in faqs:
-        kb.add(InlineKeyboardButton(f"❌ {faq['question']}", callback_data=f"del_faq_{faq['id']}")
+        kb.add(InlineKeyboardButton(f"❌ {faq['question']}", callback_data=f"del_faq_{faq['id']}"))
     kb.add(InlineKeyboardButton("⬅️ Ортаға", callback_data="back_faq"))
     await callback.message.answer("❌ Қай сұрақты өшіру керек?", reply_markup=kb)
 
