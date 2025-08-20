@@ -240,3 +240,153 @@ async def show_code_stat(message: types.Message, state: FSMContext):
         f"👁 Ko‘rilgan: <b>{stat['viewed']}</b>",
         parse_mode="HTML"
   )
+
+# === 3-ші блок === #
+
+# === Admin paneli === #
+@dp.message_handler(lambda m: m.text == "➕ Anime qo‘shish", user_id=ADMINS)
+async def add_anime_start(message: types.Message):
+    await AdminStates.waiting_for_kino_data.set()
+    await message.answer("📝 Anime qo‘shish uchun format:\n`KOD @kanal REKLAMA_ID POST_SONI ANIME_NOMI`\nMasalan: `91 @MyKino 4 12 naruto`", parse_mode="Markdown")
+
+@dp.message_handler(state=AdminStates.waiting_for_kino_data, user_id=ADMINS)
+async def add_anime_handler(message: types.Message, state: FSMContext):
+    rows = message.text.strip().split("\n")
+    successful = 0
+    failed = 0
+    for row in rows:
+        parts = row.strip().split()
+        if len(parts) < 5:
+            failed += 1
+            continue
+
+        code, server_channel, reklama_id, post_count = parts[:4]
+        title = " ".join(parts[4:])
+
+        if not (code.isdigit() and reklama_id.isdigit() and post_count.isdigit()):
+            failed += 1
+            continue
+
+        reklama_id = int(reklama_id)
+        post_count = int(post_count)
+
+        await add_kino_code(code, server_channel, reklama_id + 1, post_count, title)
+
+        download_btn = InlineKeyboardMarkup().add(
+            InlineKeyboardButton("📥 Yuklab olish", url=f"https://t.me/{BOT_USERNAME}?start={code}")
+        )
+
+        try:
+            for ch in MAIN_CHANNELS:
+                await bot.copy_message(
+                    chat_id=ch,
+                    from_chat_id=server_channel,
+                    message_id=reklama_id,
+                    reply_markup=download_btn
+                )
+            successful += 1
+        except:
+            failed += 1
+
+    await message.answer(f"✅ Yangi kodlar qo‘shildi:\n\n✅ Muvaffaqiyatli: {successful}\n❌ Xatolik: {failed}")
+    await state.finish()
+
+# === Kod statistikasi === #
+@dp.message_handler(lambda m: m.text == "📈 Kod statistikasi", user_id=ADMINS)
+async def show_stat_code(message: types.Message):
+    await message.answer("📥 Kod raqamini yuboring:")
+    await AdminStates.waiting_for_stat_code.set()
+
+@dp.message_handler(state=AdminStates.waiting_for_stat_code, user_id=ADMINS)
+async def process_stat_code(message: types.Message, state: FSMContext):
+    code = message.text.strip()
+    if not code.isdigit():
+        await message.answer("❗ Noto'g'ri format. Iltimos, raqam kiriting.")
+        await state.finish()
+        return
+
+    stat = await get_code_stat(code)
+    if not stat:
+        await message.answer("❗ Bunday kod statistikasi topilmadi.")
+        await state.finish()
+        return
+
+    await message.answer(
+        f"📊 <b>{code} statistikasi:</b>\n"
+        f"🔍 Qidirilgan: <b>{stat['searched']}</b>\n"
+        f"👁 Ko‘rilgan: <b>{stat['viewed']}</b>",
+        parse_mode="HTML"
+    )
+    await state.finish()
+
+# === Kodni o'chirish === #
+@dp.message_handler(lambda m: m.text == "❌ Kodni o‘chirish", user_id=ADMINS)
+async def delete_code_start(message: types.Message):
+    await AdminStates.waiting_for_delete_code.set()
+    await message.answer("🗑 Qaysi kodni o‘chirmoqchisiz? Kod raqamini yuboring.")
+
+@dp.message_handler(state=AdminStates.waiting_for_delete_code, user_id=ADMINS)
+async def delete_code_handler(message: types.Message, state: FSMContext):
+    code = message.text.strip()
+    if not code.isdigit():
+        await message.answer("❗ Noto'g'ri format. Iltimos, raqam kiriting.")
+        await state.finish()
+        return
+
+    deleted = await delete_kino_code(code)
+    if deleted:
+        await message.answer(f"✅ Kod {code} o‘chirildi.")
+    else:
+        await message.answer("❌ Kod topilmadi yoki o‘chirib bo‘lmadi.")
+    await state.finish()
+
+# === Kodni tahrirlash === #
+@dp.message_handler(lambda m: m.text == "✏️ Kodni tahrirlash", user_id=ADMINS)
+async def edit_code_start(message: types.Message):
+    await AdminStates.waiting_for_edit_code.set()
+    await message.answer("✏️ Qaysi kodni tahrirlashni xohlaysiz? Eski kod raqamini yuboring.")
+
+@dp.message_handler(state=AdminStates.waiting_for_edit_code, user_id=ADMINS)
+async def get_old_code(message: types.Message, state: FSMContext):
+    code = message.text.strip()
+    if not code.isdigit():
+        await message.answer("❗ Noto'g'ri format. Iltimos, raqam kiriting.")
+        await state.finish()
+        return
+
+    post = await get_kino_by_code(code)
+    if not post:
+        await message.answer("❌ Bunday kod topilmadi. Qaytadan urinib ko‘ring.")
+        await state.finish()
+        return
+
+    await state.update_data(old_code=code)
+    await message.answer(f"🔎 Kod: {code}\n📌 Nomi: {post['title']}\n\nYangi kod va nomni yuboring (masalan: `92 naruto_uz`):")
+    await AdminStates.waiting_for_new_code.set()
+
+@dp.message_handler(state=AdminStates.waiting_for_new_code, user_id=ADMINS)
+async def get_new_code(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    parts = message.text.strip().split()
+    if len(parts) < 2:
+        await message.answer("❗ Noto'g'ri format. Iltimos, yangi kod va nomni kiriting.")
+        return
+
+    new_code, new_title = parts[0], " ".join(parts[1:])
+    if not new_code.isdigit():
+        await message.answer("❗ Noto'g'ri format. Iltimos, yangi kod raqamini kiriting.")
+        return
+
+    await state.update_data(new_code=new_code, new_title=new_title)
+    await message.answer(f"✅ Kod {data['old_code']} ni {new_code} ga va nomni {new_title} ga almashtirmoqchimisiz?")
+    await AdminStates.waiting_for_confirm_edit.set()
+
+@dp.message_handler(state=AdminStates.waiting_for_confirm_edit, user_id=ADMINS)
+async def confirm_edit(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    if message.text.lower() in ("ha", "yes", "ok"):
+        await update_anime_code(data['old_code'], data['new_code'], data['new_title'])
+        await message.answer("✅ Kod va nom muvaffaqiyatli tahrirlandi.")
+    else:
+        await message.answer("❌ Tahrirlash bekor edildi.")
+    await state.finish()
