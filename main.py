@@ -5,9 +5,9 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.utils import executor
 import os
-from dotenv import load_dotenv   # ✅ МІНЕ ОСЫ ИМПОРТТЫ ҚОЙДЫМ
+from dotenv import load_dotenv  # ✅ Осы импортты қойдым
 from keep_alive import keep_alive
-from database import (  # database.py файлдан функцияларды импорттаймиз
+from database import (  # database.py файлдан функцияларды импорттаймыз
     init_db,
     add_user,
     get_user_count,
@@ -22,7 +22,7 @@ from database import (  # database.py файлдан функцияларды и
 )
 
 # === YUKLAMALAR === #
-load_dotenv()   # ✅ .env faylini yuklaydi
+load_dotenv()  # ✅ .env файлды жүктеді
 keep_alive()
 
 API_TOKEN = os.getenv("API_TOKEN")
@@ -113,7 +113,7 @@ def kanal_menu():
     return menu
 
 # === Kanal qo'shish === #
-@dp.callback_query(lambda c: c.data == "kanal_add")
+@dp.callback_query_handler(lambda c: c.data == "kanal_add")
 async def kanal_add(call: types.CallbackQuery, state: FSMContext):
     if str(call.from_user.id) == ADMIN_ID:
         await call.message.answer("📎 Kanal havolasini yuboring:")
@@ -122,21 +122,21 @@ async def kanal_add(call: types.CallbackQuery, state: FSMContext):
         await call.answer("⚠️ Sizga ruxsat yo'q!", show_alert=True)
 
 # === Kanal URL === #
-@dp.message(KanalFSM.url)
+@dp.message_handler(state=KanalFSM.url)
 async def kanal_url(msg: types.Message, state: FSMContext):
     await state.update_data(url=msg.text)
     await msg.answer("🆔 Kanal ID yuboring:")
     await state.set_state(KanalFSM.kanal_id)
 
 # === Kanal ID === #
-@dp.message(KanalFSM.kanal_id)
+@dp.message_handler(state=KanalFSM.kanal_id)
 async def kanal_id(msg: types.Message, state: FSMContext):
     await state.update_data(kanal_id=msg.text)
     await msg.answer("⏳ Kanal qancha vaqt majburiy obunada turadi? (masalan: 1m, 1d, null)")
     await state.set_state(KanalFSM.vaqt)
 
 # === Kanal vaqt === #
-@dp.message(KanalFSM.vaqt)
+@dp.message_handler(state=KanalFSM.vaqt)
 async def kanal_vaqt(msg: types.Message, state: FSMContext):
     data = await state.get_data()
     vaqt_input = msg.text.strip()
@@ -159,7 +159,7 @@ async def kanal_vaqt(msg: types.Message, state: FSMContext):
     await state.set_state(KanalFSM.limit)
 
 # === Kanal limit === #
-@dp.message(KanalFSM.limit)
+@dp.message_handler(state=KanalFSM.limit)
 async def kanal_limit(msg: types.Message, state: FSMContext):
     try:
         data = await state.get_data()
@@ -184,63 +184,6 @@ async def kanal_limit(msg: types.Message, state: FSMContext):
         await msg.answer("⚠️ Iltimos, raqam kiriting!")
     finally:
         await state.clear()
-
-# === Kanal list === #
-@dp.callback_query(lambda c: c.data == "kanal_list")
-async def kanal_list(call: types.CallbackQuery):
-    if not kanallar:
-        await call.message.answer("📭 Hech qanday kanal yo'q.")
-    else:
-        text = "📋 Majburiy obunadagi kanallar:\n"
-        for i, (k_id, data) in enumerate(kanallar.items(), 1):
-            text += f"{i}. {data['url']} (ID: {k_id}) - {data['limit']} odam, {format_vaqt(data['vaqt'])} vaqt\n"
-        await call.message.answer(text)
-
-# === Kanal delete === #
-@dp.callback_query(lambda c: c.data == "kanal_delete")
-async def kanal_delete(call: types.CallbackQuery):
-    if not kanallar:
-        await call.message.answer("📭 Hech qanday kanal yo'q.")
-        return
-    markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"❌ {data['url']} ni ochirish", callback_data=f"del_{k_id}")]
-        for k_id, data in kanallar.items()
-    ])
-    markup.inline_keyboard.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="kanal_back")])
-    await call.message.answer("❌ Qaysi kanalni ochirmoqchisiz?", reply_markup=markup)
-
-# === Kanal back === #
-@dp.callback_query(lambda c: c.data == "kanal_back")
-async def kanal_back(call: types.CallbackQuery):
-    await call.message.answer("🔙 Orqaga qaytdingiz.", reply_markup=kanal_menu())
-
-# === Kod statistikasi === #
-@dp.message_handler(lambda m: m.text == "📈 Kod statistikasi")
-async def ask_stat_code(message: types.Message):
-    if message.from_user.id not in ADMINS:
-        return
-    await message.answer("📥 Kod raqamini yuboring:")
-    await AdminStates.waiting_for_stat_code.set()
-
-# === Kod statistikasi === #
-@dp.message_handler(state=AdminStates.waiting_for_stat_code)
-async def show_code_stat(message: types.Message, state: FSMContext):
-    await state.finish()
-    code = message.text.strip()
-    if not code:
-        await message.answer("❗ Kod yuboring.")
-        return
-    stat = await get_code_stat(code)
-    if not stat:
-        await message.answer("❗ Bunday kod statistikasi topilmadi.")
-        return
-
-    await message.answer(
-        f"📊 <b>{code} statistikasi:</b>\n"
-        f"🔍 Qidirilgan: <b>{stat['searched']}</b>\n"
-        f"👁 Ko‘rilgan: <b>{stat['viewed']}</b>",
-        parse_mode="HTML"
-            )
 
 # === 3-ші блок === #
 
@@ -392,7 +335,6 @@ async def confirm_edit(message: types.Message, state: FSMContext):
         await message.answer("❌ Tahrirlash bekor edildi.")
     await state.finish()
 
-
 # === 4-ші блок === #
 
 # === Admin мен пайдаланушы арасындағы хабар алмасу === #
@@ -447,6 +389,8 @@ async def forward_to_admins(message: types.Message, state: FSMContext):
 
     await message.answer("✅ Xabaringiz yuborildi. Tez orada admin siz bilan bog‘lanadi.")
 
+# === 5-ші блок === #
+
 # === Admin paneli === #
 @dp.message_handler(lambda m: m.text == "📢 Habar yuborish", user_id=ADMINS)
 async def broadcast_message(message: types.Message):
@@ -491,14 +435,14 @@ async def process_broadcast(message: types.Message, state: FSMContext):
 async def show_help(message: types.Message):
     kb = InlineKeyboardMarkup(row_width=1)
     kb.add(InlineKeyboardButton("📥 1. Anime qo‘shish", callback_data="help_add"))
-    kb.add(InlineKeyboardButton("📡 2. Kanal yaratish", callback_data="help_channel"))
-    kb.add(InlineKeyboardButton("🆔 3. Reklama ID olish", callback_data="help_id"))
-    kb.add(InlineKeyboardButton("🔁 4. Kod ishlashi", callback_data="help_code"))
-    kb.add(InlineKeyboardButton("❓ 5. Savol-javob", callback_data="help_faq"))
+    kb.add(InlineKeyboardButton("📡 2. Kanal yaratish", callback_data="help_channel")
+    kb.add(InlineKeyboardButton("🆔 3. Reklama ID olish", callback_data="help_id")
+    kb.add(InlineKeyboardButton("🔁 4. Kod ishlashi", callback_data="help_code")
+    kb.add(InlineKeyboardButton("❓ 5. Savol-javob", callback_data="help_faq")
     await message.answer("📘 Qanday yordam kerak?", reply_markup=kb)
 
 # === Qo‘llanma sahifalari === #
-@dp.callback_query_handler(lambda c: c.data.startswith("help_"))
+@dp.callback_query_handler(lambda c: c.data.startswith("help_")
 async def show_help_page(callback: types.CallbackQuery):
     key = callback.data
     text = HELP_TEXTS.get(key, "❌ Ma'lumot topilmadi.")
@@ -537,90 +481,7 @@ async def back_to_qollanma(callback: types.CallbackQuery):
     finally:
         await callback.answer()
 
-# === 5-ші блок === #
-
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
-
-scheduler = AsyncIOScheduler()
-
-# === Күнделікті хабар жіберу === #
-async def send_daily_broadcast():
-    users = await get_all_user_ids()
-    channel_username = os.getenv("DAILY_BROADCAST_CHANNEL")  # Күнделікті хабар жіберілетін канал
-    msg_id = os.getenv("DAILY_BROADCAST_MESSAGE_ID")  # Хaбар ID
-
-    if not channel_username or not msg_id:
-        print("Күнделікті хабар жіберу үшін канал және хабар ID-ы керек.")
-        return
-
-    success = 0
-    fail = 0
-
-    for user_id in users:
-        try:
-            await bot.forward_message(
-                chat_id=user_id,
-                from_chat_id=channel_username,
-                message_id=int(msg_id)
-            )
-            success += 1
-        except Exception as e:
-            print(f"Күнделікті хабар жіберу кезіндегі қате {user_id} үшін: {e}")
-            fail += 1
-
-    print(f"Күнделікті хабар жіберілді: {success} табысты, {fail} қате.")
-
-def setup_daily_broadcast():
-    trigger = CronTrigger(hour=9, minute=0)  # Күнделікті 09:00-да жіберу
-    scheduler.add_job(send_daily_broadcast, trigger=trigger)
-    scheduler.start()
-
-# === Пайдаланушылардың тіркелу уақытын бақылау === #
-async def check_user_registration_time():
-    current_time = datetime.now()
-    users = await get_all_user_ids()
-    for user_id in users:
-        user_data = await get_user_registration_time(user_id)
-        if user_data and user_data['registration_time']:
-            if current_time >= user_data['registration_time'] + timedelta(days=30):  # Мысалы, 30 күннен кейін
-                try:
-                    await bot.send_message(user_id, "Сіздің міндетті тіркелу уақытыңыз аяқталды. Қайта тіркелу үшін /register командасын пайдаланыңыз.")
-                except:
-                    pass  # Хабар жіберу кезіндегі қателерді ескерусіз қалдырамыз
-
-def setup_user_registration_check():
-    scheduler.add_job(check_user_registration_time, trigger='interval', hours=24)  # 24 сағат сайын тексеру
-
-# === Статистиканы көрсету === #
-@dp.message_handler(lambda m: m.text == "📊 Statistika", user_id=ADMINS)
-async def show_statistics(message: types.Message):
-    users = await get_user_count()
-    channels = await get_all_codes()
-    broadcast_success, broadcast_fail = await get_broadcast_statistics()
-
-    await message.answer(
-        f"📊 Статистика:\n"
-        f"👥 Пайдаланушылар: {users}\n"
-        f"🎬 Кодтар: {len(channels)}\n"
-        f"📢 Күнделікті хабар жіберу:\n"
-        f"   - Табысты: {broadcast_success}\n"
-        f"   - Қате: {broadcast_fail}"
-    )
-
-async def get_broadcast_statistics():
-    # Бұл функция күнделікті хабар жіберу статистикасын алу үшін жазылды
-    # Мысалы, базадағы лог файлдарын алу
-    return 10, 2  # Мысал ретінде
-
-# === Бастапқы инициалдау === #
-async def on_startup(dp):
-    await init_db()
-    setup_daily_broadcast()
-    setup_user_registration_check()
-    print("✅ PostgreSQL базасына қосылды!")
-
-# === 6-шы блок === #
+    # === 6-шы блок === #
 
 # === Сұрақ-жауап жүйесі === #
 class FAQStates(StatesGroup):
@@ -682,11 +543,11 @@ async def delete_faq_start(callback: types.CallbackQuery):
         return
     kb = InlineKeyboardMarkup(row_width=1)
     for faq in faqs:
-        kb.add(InlineKeyboardButton(f"❌ {faq['question']}", callback_data=f"del_faq_{faq['id']}"))
+        kb.add(InlineKeyboardButton(f"❌ {faq['question']}", callback_data=f"del_faq_{faq['id']}")
     kb.add(InlineKeyboardButton("⬅️ Ортаға", callback_data="back_faq"))
     await callback.message.answer("❌ Қай сұрақты өшіру керек?", reply_markup=kb)
 
-@dp.callback_query_handler(lambda c: c.data.startswith("del_faq_"), user_id=ADMINS)
+@dp.callback_query_handler(lambda c: c.data.startswith("del_faq_", user_id=ADMINS)
 async def delete_faq_confirm(callback: types.CallbackQuery):
     faq_id = c.data.split("_")[2]
     await delete_faq(faq_id)  # delete_faq функциясын қосу керек
@@ -701,55 +562,3 @@ async def handle_faq(message: types.Message):
         await message.answer(f"✅ {faq['answer']}")
     else:
         await message.answer("❌ Бұл сұраққа жауап жоқ. Админмен байланысыңыз.")
-
-# === FAQ функциялары === #
-async def add_faq(question, answer):
-    # FAQ сұрағын қосу функциясы
-    # Базаға қосу үшін код жазу керек
-    pass
-
-async def get_all_faqs():
-    # Барлық FAQ сұрақтарын алу функциясы
-    # Базадан оқу үшін код жазу керек
-    return []
-
-async def get_faq_by_question(question):
-    # Белгілі бір сұраққа сәйкес FAQ-ты алу функциясы
-    # Базадан оқу үшін код жазу керек
-    return None
-
-async def delete_faq(faq_id):
-    # FAQ сұрағын өшіру функциясы
-    # Базадан өшіру үшін код жазу керек
-    pass
-
-# === Ақырғы блок === #
-
-from flask import Flask
-from threading import Thread
-import asyncio
-
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Bot is running ✅"
-
-# === Flask серверін және Telegram ботты іске қосу === #
-def run_flask():
-    port = int(os.getenv("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
-
-async def start_bot():
-    await dp.start_polling(bot, skip_updates=True)
-
-if __name__ == "__main__":
-    # Flask серверін алохида threadда іске қосу
-    flask_thread = Thread(target=run_flask, daemon=True)
-    flask_thread.start()
-
-    # Telegram ботты іске қосу
-    try:
-        asyncio.run(start_bot())
-    except (KeyboardInterrupt, SystemExit):
-        print("Bot жабылды.")
