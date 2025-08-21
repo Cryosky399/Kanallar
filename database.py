@@ -10,13 +10,20 @@ db_pool = None
 # === Foydalanuvchilar jadvali ===
 async def init_db():
     global db_pool
-    db_pool = await asyncpg.create_pool(
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASS"),
-        database=os.getenv("DB_NAME"),
-        host=os.getenv("DB_HOST"),
-        port=int(os.getenv("DB_PORT"))
-    )
+    db_url = os.getenv("DB_URL")
+
+    if db_url:
+        # Agar DB_URL berilgan bo'lsa, shuni ishlatamiz
+        db_pool = await asyncpg.create_pool(dsn=db_url)
+    else:
+        # Agar DB_URL bo'lmasa, alohida parametrlar orqali ulanamiz
+        db_pool = await asyncpg.create_pool(
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASS"),
+            database=os.getenv("DB_NAME"),
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT"))
+        )
 
     async with db_pool.acquire() as conn:
         # Foydalanuvchilar
@@ -60,7 +67,6 @@ async def init_db():
                 "INSERT INTO admins (user_id) VALUES ($1) ON CONFLICT DO NOTHING",
                 admin_id
             )
-
 
 # === Foydalanuvchi qo'shish ===
 async def add_user(user_id):
@@ -119,7 +125,6 @@ async def get_all_codes():
             }
             for row in rows
         ]
-
 
 # === Kodni o'chirish ===
 async def delete_kino_code(code):
