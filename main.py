@@ -32,7 +32,7 @@ load_dotenv()
 keep_alive()
 
 API_TOKEN = os.getenv("API_TOKEN")
-CHANNELS = ["@AniVerseClip", "@anilordtvbot", "@HENTAY_UZBEKTILIDA", "@anilord_ongoing", "@anilordmanhwa"]
+CHANNELS = ["@AniVerseClip", "@anilordtv", "@HENTAY_UZBEKTILIDA", "@anilord_ongoing", "@anilordmanhwa"]
 MAIN_CHANNELS = os.getenv("MAIN_CHANNELS").split(",")
 BOT_USERNAME = os.getenv("BOT_USERNAME")
 
